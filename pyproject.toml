@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2019-2020 Magenta ApS
+# SPDX-License-Identifier: MPL-2.0
+[tool.poetry]
+name = "os2mo-graphql-subscriptions"
+version = "0.1.0"
+description = "GraphQL subscriptions from AMQP"
+authors = ["Magenta ApS <info@magenta.dk>"]
+license = "MPL-2.0"
+readme = "README.md"
+homepage = "https://magenta.dk/"
+repository = "https://git.magenta.dk/rammearkitektur/os2mo-graphql-subscriptions"
+keywords = ["os2mo", "amqp", "graphql"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+structlog = "^21.5.0"
+ramqp = "^2.0.0"
+pydantic = "^1.9.0"
+uvicorn = {extras = ["standard"], version = "^0.17.6"}
+strawberry-graphql = "^0.114.0"
+prometheus-fastapi-instrumentator = "^5.8.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.2"
+black = "^22.3.0"
+reorder-python-imports = "^3.1.0"
+mypy = "^0.950"
+pre-commit = "^2.19.0"
+pylint-pydantic = "^0.1.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.autopub]
+git-username = "MagentaBot"
+git-email = "info@magenta.dk"
+
+[tool.pytest.ini_options]
+asyncio_mode="auto"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = "True"
+warn_unused_configs = "True"
+check_untyped_defs = "True"
+disallow_untyped_defs = "True"
+plugins = "pydantic.mypy"
+
+[tool.flake8]
+max-line-length = 88
+exclude = [
+".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".venv", ".gitlab"
+]
