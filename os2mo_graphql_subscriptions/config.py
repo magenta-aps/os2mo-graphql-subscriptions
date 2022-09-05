@@ -45,6 +45,8 @@ class Settings(BaseSettings):
 
     log_level: LogLevel = LogLevel.DEBUG
 
+    enable_cors: bool = True
+
 
 @cache
 def get_settings(*args: Any, **kwargs: Any) -> Settings:

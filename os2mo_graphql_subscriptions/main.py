@@ -4,13 +4,15 @@
 """Event handling."""
 import asyncio
 from datetime import datetime
-from uuid import uuid4
+from typing import AsyncGenerator
 from uuid import UUID
+from uuid import uuid4
 
 import strawberry
 import structlog
 from fastapi import FastAPI
 from prometheus_client import Info
+from prometheus_fastapi_instrumentator import Instrumentator
 from ramqp.mo_models import MOCallbackType
 from ramqp.mo_models import MORoutingKey
 from ramqp.mo_models import ObjectType
@@ -18,10 +20,9 @@ from ramqp.mo_models import PayloadType
 from ramqp.mo_models import RequestType
 from ramqp.mo_models import ServiceType
 from ramqp.moqp import MOAMQPSystem
+from starlette.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 from strawberry.schema.config import StrawberryConfig
-from prometheus_fastapi_instrumentator import Instrumentator
-from typing import AsyncGenerator
 
 from .config import get_settings
 from .config import Settings
@@ -63,17 +64,29 @@ class EventOutput:
     pass
 
 
+# TODO: Remove this - It's just used as a test
+@strawberry.type
+class User:
+    name: str
+    age: int
+
+
 @strawberry.type
 class Query:
-    info: str
-    pass
+    @strawberry.field
+    # TODO: Remove this - It's just used as a test
+    def user(self) -> User:
+        return User(name="Patrick", age=100)
+
 
 ServiceType = strawberry.enum(ServiceType)
 ObjectType = strawberry.enum(ObjectType)
 RequestType = strawberry.enum(RequestType)
 
 
-def topic_matches(message_routing_key: MORoutingKey, listen_routing_key: MORoutingKey) -> bool:
+def topic_matches(
+    message_routing_key: MORoutingKey, listen_routing_key: MORoutingKey
+) -> bool:
     if listen_routing_key.service_type != ServiceType.WILDCARD:
         if listen_routing_key.service_type != message_routing_key.service_type:
             return False
@@ -105,7 +118,9 @@ class EventBus:
                 continue
             yield payload
 
-    async def listen_to_all(self) -> AsyncGenerator[tuple[MORoutingKey, PayloadType], None]:
+    async def listen_to_all(
+        self,
+    ) -> AsyncGenerator[tuple[MORoutingKey, PayloadType], None]:
         queue_uuid = uuid4()
         queue = asyncio.Queue()
 
@@ -117,11 +132,11 @@ class EventBus:
         finally:
             del self.queues[queue_uuid]
 
-    async def publish_event(self, routing_key: MORoutingKey, payload: PayloadType) -> None:
+    async def publish_event(
+        self, routing_key: MORoutingKey, payload: PayloadType
+    ) -> None:
         item = (routing_key, payload)
-        await asyncio.gather(*[
-            queue.put(item) for queue in self.queues.values()
-        ])
+        await asyncio.gather(*[queue.put(item) for queue in self.queues.values()])
 
 
 event_bus = EventBus()
@@ -149,7 +164,11 @@ class Subscription:
             yield datetime.now().isoformat()
 
 
-schema = strawberry.Schema(query=Query, subscription=Subscription, config=StrawberryConfig(auto_camel_case=False))
+schema = strawberry.Schema(
+    query=Query,
+    subscription=Subscription,
+    config=StrawberryConfig(auto_camel_case=False),
+)
 
 
 async def callback(
@@ -208,6 +227,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI()
     app.include_router(graphql_app, prefix="/graphql")
 
+    if settings.enable_cors:
+        print("Pog")
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     @app.get("/")
     async def fire_event():
         await event_bus.publish_event(
@@ -219,8 +248,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             PayloadType(
                 uuid=UUID("1afb982a-7b77-4f1d-ba0d-6da8316d533b"),
                 object_uuid=uuid4(),
-                time=datetime.now()
-            )
+                time=datetime.now(),
+            ),
         )
 
     update_build_information(
@@ -230,12 +259,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     amqp_system = MOAMQPSystem()
     amqp_system.register(
-        ServiceType.WILDCARD,
-        ObjectType.WILDCARD,
-        RequestType.WILDCARD
-    )(
-        callback
-    )
+        ServiceType.WILDCARD, ObjectType.WILDCARD, RequestType.WILDCARD
+    )(callback)
 
     @app.on_event("startup")
     async def startup_amqp_consumer():
