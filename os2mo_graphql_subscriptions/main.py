@@ -192,7 +192,7 @@ async def callback(
         payload=payload,
     )
     # TODO: Metrics
-    # TODO: AsyncGenerator source here
+    await event_bus.publish_event(mo_routing_key, payload)
 
 
 def configure_logging(settings: Settings) -> None:
@@ -228,7 +228,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(graphql_app, prefix="/graphql")
 
     if settings.enable_cors:
-        print("Pog")
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
